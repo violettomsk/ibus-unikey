@@ -8,9 +8,10 @@
 #include <stdio.h>
 
 #include <ibus.h>
-#include "utils.h"
 #include "engine.h"
 #include "unikey.h"
+
+#define _(string) gettext(string)
 
 static IBusBus* bus         = NULL;
 static IBusFactory* factory = NULL;
@@ -19,16 +20,16 @@ static IBusFactory* factory = NULL;
 static gboolean xml     = FALSE;
 static gboolean ibus    = FALSE;
 static gboolean verbose = FALSE;
-static gboolean version = FALSE;
 
 static const GOptionEntry entries[] =
 {
     { "xml",     'x', 0, G_OPTION_ARG_NONE, &xml,     "generate xml for engines", NULL },
     { "ibus",    'i', 0, G_OPTION_ARG_NONE, &ibus,    "component is executed by ibus", NULL },
     { "verbose", 'v', 0, G_OPTION_ARG_NONE, &verbose, "verbose", NULL },
-    { "version", 'V', 0, G_OPTION_ARG_NONE, &version, "print ibus-unikey version", NULL },
     { NULL },
 };
+
+static IBusComponent* ibus_unikey_get_component();
 
 static void ibus_disconnected_cb(IBusBus* bus, gpointer user_data)
 {
@@ -54,11 +55,7 @@ static void start_component(void)
     for (p = engines; p != NULL; p = p->next)
     {
         IBusEngineDesc* engine = (IBusEngineDesc*)p->data;
-#if IBUS_CHECK_VERSION(1,3,99)
         ibus_factory_add_engine(factory, ibus_engine_desc_get_name(engine), IBUS_TYPE_UNIKEY_ENGINE);
-#else
-        ibus_factory_add_engine(factory, engine->name, IBUS_TYPE_UNIKEY_ENGINE);
-#endif
     }
 
     if (ibus)
@@ -113,18 +110,50 @@ int main(gint argc, gchar** argv)
         print_engines_xml();
         return 0;
     }
-    else if (version)
-    {
-        g_print(PACKAGE_STRING " (engine component)"
-            "\n  Copyright (C) 2009 - 2012 Ubuntu-VN <http://www.ubuntu-vn.org>"
-            "\n  Author: Lê Quốc Tuấn <mr.lequoctuan@gmail.com>"
-            "\n  Homepage: <http://ibus-unikey.googlecode.com>"
-            "\n  License: GNU GPL3"
-            "\n");
-        return 0;
-    }
 
     start_component();
 
     return 0;
 }
+
+#define IU_DESC _("Vietnamese Input Method Engine for IBus using Unikey Engine\n\
+Usage:\n\
+  - Choose input method, output charset, options in language bar.\n\
+  - There are 4 input methods: Telex, Vni, STelex (simple telex) \
+and STelex2 (which same as STelex, the difference is it use w as ư).\n\
+  - And 7 output charsets: Unicode (UTF-8), TCVN3, VNI Win, VIQR, CString, NCR Decimal and NCR Hex.\n\
+  - Use <Shift>+<Space> or <Shift>+<Shift> to restore keystrokes.\n\
+  - Use <Control> to commit a word.\
+")
+
+static IBusComponent* ibus_unikey_get_component()
+{
+    IBusComponent* component;
+    IBusEngineDesc* engine;
+
+    component = ibus_component_new("org.freedesktop.IBus.Unikey",
+                                   "Unikey component",
+                                   PACKAGE_VERSION,
+                                   "GPLv3",
+                                   "Vietnamese input group",
+                                   PACKAGE_BUGREPORT,
+                                   "",
+                                   PACKAGE_NAME);
+
+    engine = ibus_engine_desc_new_varargs ("name",        "Unikey",
+                                           "longname",    "Unikey",
+                                           "description", IU_DESC,
+                                           "language",    "vi",
+                                           "license",     "GPLv3",
+                                           "author",      "Vietnamese input group",
+                                           "icon",        PKGDATADIR "/icons/ibus-unikey.svg",
+                                           "layout",      "*",
+                                           "rank",        99,
+                                           "setup",       LIBEXECDIR "/ibus-setup-unikey",
+                                           NULL);
+
+    ibus_component_add_engine(component, engine);
+
+    return component;
+}
+
